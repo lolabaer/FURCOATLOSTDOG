@@ -2,18 +2,6 @@
 
 #include "wled.h"
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
-  uint8_t temprature_sens_read();
-
-#ifdef __cplusplus
-}
-#endif
-
-uint8_t temprature_sens_read();
 // class name. Use something descriptive and leave the ": public Usermod" part :)
 class mcuTemp : public Usermod
 {
@@ -43,20 +31,13 @@ public:
       return;
 
 #ifdef ESP8266 // ESP8266
-// does not seem possible
-#else
-#if defined(CONFIG_IDF_TARGET_ESP32C3) // ESP32C3
-
-#elif defined(CONFIG_IDF_TARGET_ESP32S2) // ESP32S2
-
-#elif defined(CONFIG_IDF_TARGET_ESP32S3) // ESP32S3
-
+    // does not seem possible
+    mcutemp = -1;
 #else // ESP32
-    mcutemp = roundf(((temprature_sens_read() - 32) / 1.8) * 100) / 100;
-#endif
+    mcutemp = roundf(temperatureRead() * 100) / 100;
 #endif
 
-    if (millis() - lastTime > 1000)
+    if (millis() - lastTime > 10000)
     {
       char array[10];
       snprintf(array, sizeof(array), "%f", mcutemp);
