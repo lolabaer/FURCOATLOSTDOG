@@ -33,7 +33,9 @@ public:
 #ifdef ESP8266 // ESP8266
     // does not seem possible
     mcutemp = -1;
-#else // ESP32
+#elif defined(CONFIG_IDF_TARGET_ESP32S2) // ESP32S2
+    mcutemp = -1;
+#else                                    // ESP32 ESP32S3 and ESP32C3
     mcutemp = roundf(temperatureRead() * 100) / 100;
 #endif
 
