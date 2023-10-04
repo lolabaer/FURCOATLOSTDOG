@@ -28,7 +28,7 @@ jobs:
         cd `cat /tmp/WLEDtemp/wledfoldername`
         echo '[env:custom_build]' >>platformio.ini
         echo 'extends = env:esp32dev' >>platformio.ini
-        echo 'build_flags = ${env:esp32dev.build_flags} -D USERMOD_DALLASTEMPERATURE -D USERMOD_AUTO_SAVE' >>platformio.ini
+        echo 'build_flags = ${env:esp32dev.build_flags} ' >>platformio.ini
         echo 'lib_deps = ' >>platformio.ini
         echo '  ${env:esp32dev.lib_deps}' >>platformio.ini
         echo '  OneWire@~2.3.5' >>platformio.ini
