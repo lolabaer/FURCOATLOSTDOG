@@ -216,6 +216,20 @@
 			//https://www.javascripttutorial.net/javascript-dom/javascript-remove-items-from-a-select-conditionally/
 		}
 	}
+	//WLEDMM: disable element by name
+	function disableElement(name,el) {
+		let obj = d.getElementsByName(name);
+		var select = obj;
+		if (obj[el]) select = obj[el];
+		select.disabled = true;
+	}
+	//WLEDMM: hide element by name
+	function hideElement(name,el) {
+		let obj = d.getElementsByName(name);
+		var select = obj;
+		if (obj[el]) select = obj[el];
+		select.display = false;
+	}
 	//WLEDMM: analog options only
 	function aOpt(name,el) {
 		let obj = d.getElementsByName(name);
