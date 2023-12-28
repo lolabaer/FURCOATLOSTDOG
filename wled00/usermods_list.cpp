@@ -9,22 +9,10 @@
  * || || ||
  * \/ \/ \/
  */
-//#include "../usermods/EXAMPLE_v2/usermod_v2_example.h"
+#include "../usermods/dfplayer/usermod_v2_dfplayermini.h"
 
 #ifdef USERMOD_BATTERY
 #include "../usermods/Battery/usermod_v2_Battery.h"
-#endif
-
-#ifdef USERMOD_DALLASTEMPERATURE
-#include "../usermods/Temperature/usermod_temperature.h"
-#endif
-
-#ifdef USERMOD_SHT
-#include "../usermods/sht/usermod_sht.h"
-#endif
-
-#ifdef USERMOD_SN_PHOTORESISTOR
-#include "../usermods/SN_Photoresistor/usermod_sn_photoresistor.h"
 #endif
 
 #ifdef USERMOD_PWM_FAN
@@ -55,22 +43,6 @@
 // BME280 v2 usermod. Define "USERMOD_BME280" in my_config.h
 #ifdef USERMOD_BME280
 #include "../usermods/BME280_v2/usermod_bme280.h"
-#endif
-
-#ifdef USERMOD_FOUR_LINE_DISPLAY
-#if defined(USE_ALT_DISPLAY) || defined(USE_ALT_DISPlAY)
-#include "../usermods/usermod_v2_four_line_display_ALT/usermod_v2_four_line_display_ALT.h"
-#else
-#include "../usermods/usermod_v2_four_line_display/usermod_v2_four_line_display.h"
-#endif
-#endif
-
-#ifdef USERMOD_ROTARY_ENCODER_UI
-#if defined(USE_ALT_DISPLAY) || defined(USE_ALT_DISPlAY)
-#include "../usermods/usermod_v2_rotary_encoder_ui_ALT/usermod_v2_rotary_encoder_ui_ALT.h"
-#else
-#include "../usermods/usermod_v2_rotary_encoder_ui/usermod_v2_rotary_encoder_ui.h"
-#endif
 #endif
 
 #ifdef USERMOD_AUTO_SAVE
@@ -193,15 +165,6 @@
 #include "../usermods/pwm_outputs/usermod_pwm_outputs.h"
 #endif
 
-#ifdef USERMOD_LDR_DUSK_DAWN
-#include "../usermods/LDR_Dusk_Dawn_v2/usermod_LDR_Dusk_Dawn_v2.h"
-#endif
-
-//WLEDMM ARTIFX
-#ifdef USERMOD_ARTIFX
-#include "../usermods/artifx/usermod_v2_artifx.h"
-#endif
-
 #ifdef USERMOD_WEATHER
 #include "../usermods/usermod_v2_weather/usermod_v2_weather.h"
 #endif
@@ -212,9 +175,6 @@
 #ifdef USERMOD_GAMES
 #include "../usermods/usermod_v2_games/usermod_v2_games.h"
 #endif
-#ifdef USERMOD_ANIMARTRIX
-#include "../usermods/usermod_v2_animartrix/usermod_v2_animartrix.h"
-#endif
 
 void registerUsermods()
 {
@@ -223,14 +183,12 @@ void registerUsermods()
    * || || ||
    * \/ \/ \/
    */
-  //usermods.add(new MyExampleUsermod());
-#ifdef USERMOD_BATTERY
-  usermods.add(new UsermodBattery("Battery", false));  // WLEDMM
-#endif
 
-#ifdef USERMOD_DALLASTEMPERATURE
-  usermods.add(new UsermodTemperature("Temperature", true));
-#endif
+  usermods.add(new MyDfPlayerMini());
+
+//#ifdef USERMOD_BATTERY
+//  usermods.add(new UsermodBattery());
+//#endif
 
 #ifdef USERMOD_SN_PHOTORESISTOR
   usermods.add(new Usermod_SN_Photoresistor());
@@ -264,14 +222,6 @@ void registerUsermods()
   usermods.add(new ModeSortUsermod());
 #endif
 
-#ifdef USERMOD_FOUR_LINE_DISPLAY
-  usermods.add(new FourLineDisplayUsermod());
-#endif
-
-#ifdef USERMOD_ROTARY_ENCODER_UI
-  usermods.add(new RotaryEncoderUIUsermod()); // can use USERMOD_FOUR_LINE_DISPLAY
-#endif
-
 #ifdef USERMOD_AUTO_SAVE
   usermods.add(new AutoSaveUsermod());  // can use USERMOD_FOUR_LINE_DISPLAY
 #endif
@@ -293,7 +243,7 @@ void registerUsermods()
 #endif
 
 #ifdef USERMOD_RTC
-  usermods.add(new RTCUsermod("RTC", false));  //WLEDMM
+  usermods.add(new RTCUsermod());
 #endif
 
 #ifdef USERMOD_ELEKSTUBE_IPS
@@ -385,21 +335,7 @@ void registerUsermods()
 #endif
 
 #ifdef USERMOD_MCUTEMP
-  usermods.add(new mcuTemp("MCUTemp", false));
-#endif
-
-//#ifdef USERMOD_INTERNAL_TEMPERATURE
-//  usermods.add(new InternalTemperatureUsermod());
-//#endif
-
-#ifdef USERMOD_LDR_DUSK_DAWN
-  usermods.add(new LDR_Dusk_Dawn_v2());
-#endif
-
-
-// WLEDMM ARTIFX
-#ifdef USERMOD_ARTIFX
-  usermods.add(new ARTIFXUserMod());
+  usermods.add(new mcuTemp("MCUTemp", true));
 #endif
 
 #ifdef USERMOD_WEATHER
@@ -414,8 +350,4 @@ void registerUsermods()
 #ifdef USERMOD_GAMES
   usermods.add(new GamesUsermod());
 #endif
-#ifdef USERMOD_ANIMARTRIX
-  usermods.add(new AnimartrixUsermod("Animartrix", false));
-#endif
-
 }

@@ -187,7 +187,7 @@ void handleTransitions()
   if (transitionActive && transitionDelayTemp > 0)
   {
     float tper = (millis() - transitionStartTime)/(float)transitionDelayTemp;
-    if (tper >= 1.0f)
+    if (tper >= 1.0)
     {
       strip.setTransitionMode(false);
       transitionActive = false;
@@ -293,7 +293,7 @@ void handleNightlight()
 }
 
 //utility for FastLED to use our custom timer
-uint32_t __attribute__((pure)) get_millisecond_timer() // WLEDMM attribute pure = does not write other memory
+uint32_t __attribute__((pure)) get_millisecond_timer() // WLEDMM attribute pure = does not write other momory
 {
   return strip.now;
 }
