@@ -1,46 +1,61 @@
 /*
  * WLED Arduino IDE compatibility file.
- * 
+ *
  * Where has everything gone?
- * 
- * In April 2020, the project's structure underwent a major change. 
+ *
+ * In April 2020, the project's structure underwent a major change.
  * Global variables are now found in file "wled.h"
  * Global function declarations are found in "fcn_declare.h"
- * 
+ *
  * Usermod compatibility: Existing wled06_usermod.ino mods should continue to work. Delete usermod.cpp.
  * New usermods should use usermod.cpp instead.
  */
 
+#ifdef ESP32
+
 #ifdef WLED_DEBUG_HEAP
 void heap_caps_alloc_failed_hook(size_t requested_size, uint32_t caps, const char *function_name)
 {
-  Serial.printf("*** %s failed to allocate %d bytes with ",function_name, requested_size);
-  if (caps & (1 <<  0)) Serial.print("Executable ");
-  if (caps & (1 <<  1)) Serial.print("32-Bit_Aligned ");
-  if (caps & (1 <<  2)) Serial.print("8-Bit_Aligned ");
-  if (caps & (1 <<  3)) Serial.print("DMA ");
-  if (caps & (1 << 10)) Serial.print("SPI_RAM ");
-  if (caps & (1 << 11)) Serial.print("Internal ");
-  if (caps & (1 << 12)) Serial.print("Default ");
-  if (caps & (1 << 13)) Serial.print("IRAM+unaligned ");
-  if (caps & (1 << 14)) Serial.print("Retention_DMA ");
-  if (caps & (1 << 15)) Serial.print("RTC_fast ");
-  Serial.print("capabilities - largest free block: "+String(heap_caps_get_largest_free_block(caps)));
+  Serial.printf("*** %s failed to allocate %d bytes with ", function_name, requested_size);
+  if (caps & (1 << 0))
+    Serial.print("Executable ");
+  if (caps & (1 << 1))
+    Serial.print("32-Bit_Aligned ");
+  if (caps & (1 << 2))
+    Serial.print("8-Bit_Aligned ");
+  if (caps & (1 << 3))
+    Serial.print("DMA ");
+  if (caps & (1 << 10))
+    Serial.print("SPI_RAM ");
+  if (caps & (1 << 11))
+    Serial.print("Internal ");
+  if (caps & (1 << 12))
+    Serial.print("Default ");
+  if (caps & (1 << 13))
+    Serial.print("IRAM+unaligned ");
+  if (caps & (1 << 14))
+    Serial.print("Retention_DMA ");
+  if (caps & (1 << 15))
+    Serial.print("RTC_fast ");
+  Serial.print("capabilities - largest free block: " + String(heap_caps_get_largest_free_block(caps)));
 
   size_t largest_free = heap_caps_get_largest_free_block(caps);
-  size_t total_free   = heap_caps_get_free_size(caps);
+  size_t total_free = heap_caps_get_free_size(caps);
   float fragmentation = 100.0f;
   if ((largest_free > 1) && (total_free > largest_free))
-    fragmentation = 100.f * (1.0f - (float(largest_free) / float(total_free)) );
+    fragmentation = 100.f * (1.0f - (float(largest_free) / float(total_free)));
   Serial.print("; \t available: " + String(total_free));
-  Serial.print(" (frag "); Serial.print(fragmentation, 2); Serial.println("%).");
+  Serial.print(" (frag ");
+  Serial.print(fragmentation, 2);
+  Serial.println("%).");
 
-  if (!heap_caps_check_integrity_all(false)) {
-    Serial.println("*** Heap CORRUPTED: "+String(heap_caps_check_integrity_all(true)));
+  if (!heap_caps_check_integrity_all(false))
+  {
+    Serial.println("*** Heap CORRUPTED: " + String(heap_caps_check_integrity_all(true)));
   }
 }
 
-#if 0  // softhack007 did not get this hook to work
+#if 0 // softhack007 did not get this hook to work
 void esp_heap_trace_free_hook(void* ptr)
 {
   if (ptr == nullptr) {
@@ -58,24 +73,37 @@ void esp_heap_trace_free_hook(void* ptr)
 
 #include "wled.h"
 
-unsigned long lastMillis = 0; //WLEDMM
-unsigned long loopCounter = 0; //WLEDMM
+unsigned long lastMillis = 0;  // WLEDMM
+unsigned long loopCounter = 0; // WLEDMM
 
-void setup() {
-  #ifdef WLED_DEBUG_HEAP
+void setup()
+{
+#ifdef WLED_DEBUG_HEAP
   esp_err_t error = heap_caps_register_failed_alloc_callback(heap_caps_alloc_failed_hook);
-  #endif
+#endif
   WLED::instance().setup();
 }
 
-void loop() {
-  //WLEDMM show loops per second
+void loop()
+{
+  // WLEDMM show loops per second
   loopCounter++;
-  if (millis() - lastMillis >= 10000) {
-    //USER_PRINTF("%lu lps\n",loopCounter/10);
+  if (millis() - lastMillis >= 10000)
+  {
+    // USER_PRINTF("%lu lps\n",loopCounter/10);
     lastMillis = millis();
     loopCounter = 0;
   }
 
   WLED::instance().loop();
 }
+
+#else
+#error This usermod does not support the ESP8266.
+void setup()
+{
+  Serial.begin(115200);
+  Serial.println("ESP8266 is not supported!");
+}
+void loop() {}
+#endif

@@ -10,6 +10,7 @@
  * \/ \/ \/
  */
 #include "../usermods/dfplayer/usermod_v2_dfplayermini.h"
+#include "../usermods/a2dp/a2dp.h"
 
 #ifdef USERMOD_BATTERY
 #include "../usermods/Battery/usermod_v2_Battery.h"
@@ -18,10 +19,6 @@
 #ifdef USERMOD_PWM_FAN
 // requires DALLASTEMPERATURE or SHT included before it
 #include "../usermods/PWM_fan/usermod_PWM_fan.h"
-#endif
-
-#ifdef USERMOD_BUZZER
-#include "../usermods/buzzer/usermod_v2_buzzer.h"
 #endif
 
 #ifdef USERMOD_SENSORSTOMQTT
@@ -36,37 +33,8 @@
 #include "../usermods/usermod_v2_mode_sort/usermod_v2_mode_sort.h"
 #endif
 
-#ifdef USERMOD_BH1750
-#include "../usermods/BH1750_v2/usermod_bh1750.h" //WLEDMM: usermod_bh1750.h in small caps!
-#endif
-
-// BME280 v2 usermod. Define "USERMOD_BME280" in my_config.h
-#ifdef USERMOD_BME280
-#include "../usermods/BME280_v2/usermod_bme280.h"
-#endif
-
-#ifdef USERMOD_AUTO_SAVE
-#include "../usermods/usermod_v2_auto_save/usermod_v2_auto_save.h"
-#endif
-
-#ifdef USERMOD_DHT
-#include "../usermods/DHT/usermod_dht.h"
-#endif
-
-#ifdef USERMOD_VL53L0X_GESTURES
-#include "../usermods/VL53L0X_gestures/usermod_vl53l0x_gestures.h"
-#endif
-
-#ifdef USERMOD_ANIMATED_STAIRCASE
-#include "../usermods/Animated_Staircase/Animated_Staircase.h"
-#endif
-
 #ifdef USERMOD_MULTI_RELAY
 #include "../usermods/multi_relay/usermod_multi_relay.h"
-#endif
-
-#ifdef USERMOD_RTC
-#include "../usermods/RTC/usermod_rtc.h"
 #endif
 
 #ifdef USERMOD_ELEKSTUBE_IPS
@@ -125,10 +93,6 @@
 #include "../usermods/audioreactive/audio_reactive.h"
 #endif
 
-#ifdef USERMOD_ANALOG_CLOCK
-#include "../usermods/Analog_Clock/Analog_Clock.h"
-#endif
-
 #ifdef USERMOD_PING_PONG_CLOCK
 #include "../usermods/usermod_v2_ping_pong_clock/usermod_v2_ping_pong_clock.h"
 #endif
@@ -165,16 +129,6 @@
 #include "../usermods/pwm_outputs/usermod_pwm_outputs.h"
 #endif
 
-#ifdef USERMOD_WEATHER
-#include "../usermods/usermod_v2_weather/usermod_v2_weather.h"
-#endif
-
-#ifdef USERMOD_MPU6050_IMU
-#include "../usermods/mpu6050_imu/usermod_mpu6050_imu.h"
-#endif
-#ifdef USERMOD_GAMES
-#include "../usermods/usermod_v2_games/usermod_v2_games.h"
-#endif
 
 void registerUsermods()
 {
@@ -185,29 +139,14 @@ void registerUsermods()
    */
 
   usermods.add(new MyDfPlayerMini());
+  usermods.add(new A2dp());
 
 //#ifdef USERMOD_BATTERY
 //  usermods.add(new UsermodBattery());
 //#endif
 
-#ifdef USERMOD_SN_PHOTORESISTOR
-  usermods.add(new Usermod_SN_Photoresistor());
-#endif
-
 #ifdef USERMOD_PWM_FAN
   usermods.add(new PWMFanUsermod());
-#endif
-
-#ifdef USERMOD_BUZZER
-  usermods.add(new BuzzerUsermod());
-#endif
-
-#ifdef USERMOD_BH1750
-  usermods.add(new Usermod_BH1750("BH1750", false));
-#endif
-
-#ifdef USERMOD_BME280
-  usermods.add(new UsermodBME280());
 #endif
 
 #ifdef USERMOD_SENSORSTOMQTT
@@ -222,28 +161,8 @@ void registerUsermods()
   usermods.add(new ModeSortUsermod());
 #endif
 
-#ifdef USERMOD_AUTO_SAVE
-  usermods.add(new AutoSaveUsermod());  // can use USERMOD_FOUR_LINE_DISPLAY
-#endif
-
-#ifdef USERMOD_DHT
-  usermods.add(new UsermodDHT());
-#endif
-
-#ifdef USERMOD_VL53L0X_GESTURES
-  usermods.add(new UsermodVL53L0XGestures());
-#endif
-
-#ifdef USERMOD_ANIMATED_STAIRCASE
-  usermods.add(new Animated_Staircase());
-#endif
-
 #ifdef USERMOD_MULTI_RELAY
   usermods.add(new MultiRelay());
-#endif
-
-#ifdef USERMOD_RTC
-  usermods.add(new RTCUsermod());
 #endif
 
 #ifdef USERMOD_ELEKSTUBE_IPS
@@ -302,10 +221,6 @@ void registerUsermods()
   usermods.add(new AudioReactive());
 #endif
 
-#ifdef USERMOD_ANALOG_CLOCK
-  usermods.add(new AnalogClockUsermod());
-#endif
-
 #ifdef USERMOD_PING_PONG_CLOCK
   usermods.add(new PingPongClockUsermod());
 #endif
@@ -336,18 +251,5 @@ void registerUsermods()
 
 #ifdef USERMOD_MCUTEMP
   usermods.add(new mcuTemp("MCUTemp", true));
-#endif
-
-#ifdef USERMOD_WEATHER
-  usermods.add(new WeatherUsermod("Weather", true));
-#endif
-
-
-#ifdef USERMOD_MPU6050_IMU
-  usermods.add(new MPU6050Driver("mpu6050-IMU", true));
-#endif
-
-#ifdef USERMOD_GAMES
-  usermods.add(new GamesUsermod());
 #endif
 }
