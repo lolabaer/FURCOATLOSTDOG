@@ -139,7 +139,7 @@ void registerUsermods()
    */
 
   usermods.add(new MyDfPlayerMini());
-  usermods.add(new A2dp());
+  usermods.add(new A2dp("a2dp", true));
 
 //#ifdef USERMOD_BATTERY
 //  usermods.add(new UsermodBattery());

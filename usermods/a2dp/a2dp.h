@@ -2,66 +2,59 @@
 
 #include "wled.h"
 
-#include "esp32audio.h"
-
-#include "BluetoothA2DPSink.h"
+#include "../../lib/ESP32-A2DP/src/BluetoothA2DPSink.h"
 
 // This is an empty v2 usermod template. Please see the file usermod_v2_example.h in the EXAMPLE_v2 usermod folder for documentation on the functions you can use!
 
 class A2dp : public Usermod
 {
 private:
-  bool testBool = false;
+  bool internalDac = false;
   unsigned long testULong = 42424242;
   float testFloat = 42.42;
-  String testString = "Forty-Two";
+  String btName = "Forty-Two";
 
   // These config variables have defaults set inside readFromConfig()
   int testInt;
   long testLong;
-  int8_t testPins[2];
+  int8_t i2sPins[3] = {26, 25, 22};
+
+  bool enabled;
+  static const char _a2dp[];
+  static const char _name[];
+
+  const i2s_config_t internalDacConfig = {
+      .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_TX | I2S_MODE_DAC_BUILT_IN),
+      .sample_rate = 44100,                         // corrected by info from bluetooth
+      .bits_per_sample = (i2s_bits_per_sample_t)16, // the DAC module will only take the 8bits from MSB
+      .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,
+      .communication_format = (i2s_comm_format_t)I2S_COMM_FORMAT_STAND_MSB,
+      .intr_alloc_flags = 0, // default interrupt priority
+      .dma_buf_count = 8,
+      .dma_buf_len = 64,
+      .use_apll = false,
+      .tx_desc_auto_clear = false,
+      .fixed_mclk = false,
+      //.mclk_multiple = 0,
+      //.bits_per_chan = 0
+  };
+
+  i2s_pin_config_t externalDacPins;
 
 public:
-  // A2dp(const char *name, bool enabled):Usermod(name, enabled) {} //WLEDMM
-
-  void setup()
-  {
-    // do your set-up here
-    Serial.println("Hello from my usermod!");
-    initDone = true;
-  }
-
-  void connected()
-  {
-    Serial.println("Connected to WiFi!");
-  }
-
-  void loop()
-  {
-    // if usermod is disabled or called during strip updating just exit
-    // NOTE: on very long strips strip.isUpdating() may always return true so update accordingly
-    if (!enabled || strip.isUpdating())
-      return;
-
-    // do your magic here
-    if (millis() - lastTime > 1000)
-    {
-      // Serial.println("I'm alive!");
-      lastTime = millis();
-    }
-  }
+  A2dp(const char *name, bool enabled) : Usermod(name, enabled) {} // WLEDMM
 
   // non WLED related methods, may be used for data exchange between usermods (non-inline methods should be defined out of class)
 
   /**
    * Enable/Disable the usermod
    */
-  // inline void enable(bool enable) { enabled = enable; }
+  inline void enable(bool enable) { enabled = enable; }
 
   /**
    * Get usermod enabled/disabled state
    */
-  // inline bool isEnabled() { return enabled; }
+  inline bool isEnabled() { return enabled; }
 
   // in such case add the following to another usermod:
   //  in private vars:
@@ -87,6 +80,12 @@ public:
    */
   void setup()
   {
+    externalDacPins = {
+        .bck_io_num = i2sPins[0],
+        .ws_io_num = i2sPins[1],
+        .data_out_num = i2sPins[2],
+        .data_in_num = I2S_PIN_NO_CHANGE};
+
     // do your set-up here
     // Serial.println("Hello from my usermod!");
     initDone = true;
@@ -98,7 +97,7 @@ public:
    */
   void connected()
   {
-    // Serial.println("Connected to WiFi!");
+    Serial.println("Connected to WiFi!");
   }
 
   /*
@@ -121,7 +120,7 @@ public:
     // do your magic here
     if (millis() - lastTime > 1000)
     {
-      // Serial.println("I'm alive!");
+      Serial.println("I'm alive!");
       lastTime = millis();
     }
   }
@@ -133,60 +132,23 @@ public:
    */
   void addToJsonInfo(JsonObject &root)
   {
-    // if "u" object does not exist yet wee need to create it
     JsonObject user = root["u"];
     if (user.isNull())
       user = root.createNestedObject("u");
 
-    // this code adds "u":{"ExampleUsermod":[20," lux"]} to the info object
-    // int reading = 20;
-    // JsonArray lightArr = user.createNestedArray(FPSTR(_name))); //name
-    // lightArr.add(reading); //value
-    // lightArr.add(F(" lux")); //unit
+    JsonArray infoArr = user.createNestedArray(FPSTR(_name));
 
-    // if you are implementing a sensor usermod, you may publish sensor data
-    // JsonObject sensor = root[F("sensor")];
-    // if (sensor.isNull()) sensor = root.createNestedObject(F("sensor"));
-    // temp = sensor.createNestedArray(F("light"));
-    // temp.add(reading);
-    // temp.add(F("lux"));
+    String uiDomString = F("<button class=\"btn btn-xs\" onclick=\"requestJson({");
+    uiDomString += FPSTR(_name);
+    uiDomString += F(":{");
+    uiDomString += FPSTR("enabled");
+    uiDomString += enabled ? F(":false}});\">") : F(":true}});\">");
+    uiDomString += F("<i class=\"icons");
+    uiDomString += enabled ? F(" on") : F(" off");
+    uiDomString += F("\">&#xe08f;</i>");
+    uiDomString += F("</button>");
+    infoArr.add(uiDomString);
   }
-
-  /*
-   * addToJsonState() can be used to add custom entries to the /json/state part of the JSON API (state object).
-   * Values in the state object may be modified by connected clients
-   */
-  void addToJsonState(JsonObject &root)
-  {
-    if (!initDone || !enabled)
-      return; // prevent crash on boot applyPreset()
-
-    JsonObject usermod = root[FPSTR(_name)];
-    if (usermod.isNull())
-      usermod = root.createNestedObject(FPSTR(_name));
-
-    // usermod["user0"] = userVar0;
-  }
-
-  /*
-   * readFromJsonState() can be used to receive data clients send to the /json/state part of the JSON API (state object).
-   * Values in the state object may be modified by connected clients
-   */
-  void readFromJsonState(JsonObject &root)
-  {
-    if (!initDone)
-      return; // prevent crash on boot applyPreset()
-
-    JsonObject usermod = root[FPSTR(_name)];
-    if (!usermod.isNull())
-    {
-      // expect JSON usermod data in usermod name object: {"ExampleUsermod:{"user0":10}"}
-      userVar0 = usermod["user0"] | userVar0; // if "user0" key exists in JSON, update, else keep old value
-    }
-    // you can as well check WLED state JSON keys
-    // if (root["bri"] == 255) Serial.println(F("Don't burn down your garage!"));
-  }
-
   /*
    * addToConfig() can be used to add custom persistent settings to the cfg.json file in the "um" (usermod) object.
    * It will be called by WLED when settings are actually saved (for example, LED settings are saved)
@@ -225,19 +187,22 @@ public:
   void addToConfig(JsonObject &root)
   {
     Usermod::addToConfig(root);
-    JsonObject top = root[FPSTR(_name)]; // WLEDMM
+    JsonObject top = root[FPSTR(_a2dp)]; // WLEDMM
 
     // save these vars persistently whenever settings are saved
-    top["great"] = userVar0;
-    top["testBool"] = testBool;
-    top["testInt"] = testInt;
-    top["testLong"] = testLong;
-    top["testULong"] = testULong;
-    top["testFloat"] = testFloat;
-    top["testString"] = testString;
+    // top["great"] = userVar0;
+    top["internalDac"] = internalDac;
+    // top["testInt"] = testInt;
+    // top["testLong"] = testLong;
+    // top["testULong"] = testULong;
+    // top["testFloat"] = testFloat;
+    top["btName"] = btName;
+
+    // ESP.restart();
     JsonArray pinArray = top.createNestedArray("pin");
-    pinArray.add(testPins[0]);
-    pinArray.add(testPins[1]);
+    pinArray.add(i2sPins[0]);
+    pinArray.add(i2sPins[1]);
+    pinArray.add(i2sPins[2]);
   }
 
   /*
@@ -261,21 +226,22 @@ public:
     // setting them inside readFromConfig() is slightly more robust, handling the rare but plausible use case of single value being missing after boot (e.g. if the cfg.json was manually edited and a value was removed)
 
     bool configComplete = Usermod::readFromConfig(root);
-    JsonObject top = root[FPSTR(_name)]; // WLEDMM
+    JsonObject top = root[FPSTR(_a2dp)]; // WLEDMM
 
-    configComplete &= getJsonValue(top["great"], userVar0);
-    configComplete &= getJsonValue(top["testBool"], testBool);
-    configComplete &= getJsonValue(top["testULong"], testULong);
-    configComplete &= getJsonValue(top["testFloat"], testFloat);
-    configComplete &= getJsonValue(top["testString"], testString);
+    configComplete &= getJsonValue(top["btName"], btName);
+    // configComplete &= getJsonValue(top["great"], userVar0);
+    configComplete &= getJsonValue(top["internalDac"], internalDac);
+    // configComplete &= getJsonValue(top["testULong"], testULong);
+    // configComplete &= getJsonValue(top["testFloat"], testFloat);
 
     // A 3-argument getJsonValue() assigns the 3rd argument as a default value if the Json value is missing
-    configComplete &= getJsonValue(top["testInt"], testInt, 42);
-    configComplete &= getJsonValue(top["testLong"], testLong, -42424242);
+    // configComplete &= getJsonValue(top["testInt"], testInt, 42);
+    // configComplete &= getJsonValue(top["testLong"], testLong, -42424242);
 
     // "pin" fields have special handling in settings page (or some_pin as well)
-    configComplete &= getJsonValue(top["pin"][0], testPins[0], -1);
-    configComplete &= getJsonValue(top["pin"][1], testPins[1], -1);
+    configComplete &= getJsonValue(top["pin"][0], i2sPins[0], -1);
+    configComplete &= getJsonValue(top["pin"][1], i2sPins[1], -1);
+    configComplete &= getJsonValue(top["pin"][2], i2sPins[2], -1);
 
     return configComplete;
   }
@@ -287,19 +253,32 @@ public:
    */
   void appendConfigData()
   {
+    // addInfo('a2dp:great',1,'<i>(this is a great config value)</i>');
+    // addInfo('a2dp:btName',1,'enter any string you want');
+    // dd=addDropdown('a2dp','testInt');
+    // addOption(dd,'Nothing',0);
+    // addOption(dd,'Everything',42);
+    oappend(SET_F("function insertAfter(a,b){b.parentNode.insertBefore(a,b.nextSibling)}var asd=document.createElement('i');asd.style.color='orange';asd.innerText='(change requires reboot!)';insertAfter(asd,document.getElementsByTagName('h3')[0]);asd=document.createElement('hr');asd.className='sml';insertAfter(asd,document.getElementsByTagName('h3')[0]);"));
+
     oappend(SET_F("addInfo('"));
-    oappend(String(FPSTR(_name)).c_str());
-    oappend(SET_F(":great"));
-    oappend(SET_F("',1,'<i>(this is a great config value)</i>');"));
+    oappend(String(FPSTR(_a2dp)).c_str());
+    oappend(SET_F(":internalDac"));
+    oappend(SET_F("',1,'Use internal Digital-to-analog converter');"));
+
     oappend(SET_F("addInfo('"));
-    oappend(String(FPSTR(_name)).c_str());
-    oappend(SET_F(":testString"));
-    oappend(SET_F("',1,'enter any string you want');"));
-    oappend(SET_F("dd=addDropdown('"));
-    oappend(String(FPSTR(_name)).c_str());
-    oappend(SET_F("','testInt');"));
-    oappend(SET_F("addOption(dd,'Nothing',0);"));
-    oappend(SET_F("addOption(dd,'Everything',42);"));
+    oappend(String(FPSTR(_a2dp)).c_str());
+    oappend(SET_F(":btName"));
+    oappend(SET_F("',1,'Name to appear as');"));
+    // oappend(SET_F("addInfo('"));
+    // oappend(String(FPSTR(_a2dp)).c_str());
+    // oappend(SET_F(":internalDac"));
+    // oappend(SET_F("',1,'<i>(this is a great config value)</i>');"));
+
+    // oappend(SET_F("dd=addDropdown('"));
+    // oappend(String(FPSTR(_a2dp)).c_str());
+    // oappend(SET_F("','testInt');"));
+    // oappend(SET_F("addOption(dd,'Nothing',0);"));
+    // oappend(SET_F("addOption(dd,'Everything',42);"));
   }
 
   /*
@@ -331,40 +310,6 @@ public:
     return handled;
   }
 
-#ifndef WLED_DISABLE_MQTT
-  /**
-   * handling of MQTT message
-   * topic only contains stripped topic (part after /wled/MAC)
-   */
-  bool onMqttMessage(char *topic, char *payload)
-  {
-    // check if we received a command
-    // if (strlen(topic) == 8 && strncmp_P(topic, PSTR("/command"), 8) == 0) {
-    //  String action = payload;
-    //  if (action == "on") {
-    //    enabled = true;
-    //    return true;
-    //  } else if (action == "off") {
-    //    enabled = false;
-    //    return true;
-    //  } else if (action == "toggle") {
-    //    enabled = !enabled;
-    //    return true;
-    //  }
-    //}
-    return false;
-  }
-
-  /**
-   * onMqttConnect() is called when MQTT connection is established
-   */
-  void onMqttConnect(bool sessionPresent)
-  {
-    // do any MQTT related initialisation here
-    // publishMqtt("I am alive!");
-  }
-#endif
-
   /**
    * onStateChanged() is used to detect WLED state change
    * @mode parameter is CALL_MODE_... parameter used for notifications
@@ -379,3 +324,6 @@ public:
     return USERMOD_ID_A2DP;
   }
 };
+
+const char A2dp::_a2dp[] PROGMEM = "a2dp";
+const char A2dp::_name[] PROGMEM = "a2dp";
