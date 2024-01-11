@@ -15,6 +15,10 @@
 #include "../usermods/Battery/usermod_v2_Battery.h"
 #endif
 
+#ifdef USERMOD_BLUETOOTH
+#include "../usermods/a2dp/a2dp.h"
+#endif
+
 #ifdef USERMOD_DALLASTEMPERATURE
 #include "../usermods/Temperature/usermod_temperature.h"
 #endif
@@ -226,6 +230,10 @@ void registerUsermods()
   //usermods.add(new MyExampleUsermod());
 #ifdef USERMOD_BATTERY
   usermods.add(new UsermodBattery("Battery", false));  // WLEDMM
+#endif
+
+#ifdef USERMOD_BLUETOOTH
+  usermods.add(new A2dp("Bluetooth", true));
 #endif
 
 #ifdef USERMOD_DALLASTEMPERATURE

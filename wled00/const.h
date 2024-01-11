@@ -141,7 +141,8 @@
 #define USERMOD_ID_ARTIFX                90     //Usermod "usermod_v2_artifx.h"
 #define USERMOD_ID_WEATHER               91     //Usermod "usermod_v2_weather.h"
 #define USERMOD_ID_GAMES                 92     //Usermod "usermod_v2_games.h"
-#define USERMOD_ID_ANIMARTRIX               93     //Usermod "usermod_v2_animartrix.h"
+#define USERMOD_ID_ANIMARTRIX            93     //Usermod "usermod_v2_animartrix.h"
+#define USERMOD_ID_A2DP                  94     //Usermod "a2dp.h"
 
 //Access point behavior
 #define AP_BEHAVIOR_BOOT_NO_CONN          0     //Open AP when no connection after boot

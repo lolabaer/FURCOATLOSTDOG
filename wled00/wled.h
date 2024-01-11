@@ -66,6 +66,8 @@
   #define WLED_ENABLE_WEBSOCKETS
 #endif
 
+
+
 //#define WLED_DISABLE_ESPNOW      // Removes dependence on esp now 
 
 #define WLED_ENABLE_FS_EDITOR      // enable /edit page for editing FS content. Will also be disabled with OTA lock
@@ -122,6 +124,10 @@
 
   #ifndef WLED_DISABLE_ESPNOW
     #include <esp_now.h>
+  #endif
+
+  #ifndef WLED_DISABLE_BLUETOOTH
+    #define USERMOD_BLUETOOTH
   #endif
 #endif
 #include <Wire.h>
