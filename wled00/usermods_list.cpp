@@ -9,9 +9,10 @@
  * || || ||
  * \/ \/ \/
  */
-#include "../usermods/dfplayer/usermod_v2_dfplayermini.h"
-#include "../usermods/a2dp/a2dp.h"
 
+#ifdef USERMOD_BLUETOOTH
+#include "../usermods/a2dp/a2dp.h"
+#endif
 
 #ifdef USERMOD_BATTERY
 #include "../usermods/Battery/usermod_v2_Battery.h"
