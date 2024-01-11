@@ -83,6 +83,7 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
   if (!elem["rev2D"].isNull()) elem["rY"] = elem["rev2D"];
   if (!elem["rot2D"].isNull()) elem["tp"] = elem["rot2D"];
 
+  bool newSeg = false;
   int stop = elem["stop"] | -1;
 
   // if using vectors use this code to append segment
@@ -90,6 +91,7 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
     if (stop <= 0) return false; // ignore empty/inactive segments
     strip.appendSegment(Segment(0, strip.getLengthTotal()));
     id = strip.getSegmentsNum()-1; // segments are added at the end of list
+    newSeg = true;
   }
 
   // WLEDMM: before changing segments, make sure our strip is _not_ servicing effects in parallel
@@ -189,9 +191,12 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
   }
   if (stop > start && of > len -1) of = len -1;
   seg.setUp(start, stop, grp, spc, of, startY, stopY);
+	if (newSeg) seg.refreshLightCapabilities(); // fix for #3403
 
   if (seg.reset && seg.stop == 0) {
     if (iAmGroot) suspendStripService = false; // WLEDMM release lock
+
+    if (id == strip.getMainSegmentId()) strip.setMainSegmentId(0); // fix for #3403
     return true; // segment was deleted & is marked for reset, no need to change anything else
   }
 
@@ -305,7 +310,7 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
   getVal(elem["c1"], &seg.custom1);
   getVal(elem["c2"], &seg.custom2);
   uint8_t cust3 = seg.custom3;
-  getVal(elem["c3"], &cust3); // we can't pass reference to bifield
+  getVal(elem["c3"], &cust3); // we can't pass reference to bitfield
   seg.custom3 = constrain(cust3, 0, 31);
 
   seg.check1 = elem["o1"] | seg.check1;
@@ -616,7 +621,8 @@ void serializeSegment(JsonObject& root, Segment& seg, byte id, bool forPreset, b
   root["cct"]    = seg.cct;
   root[F("set")] = seg.set;
 
-  if (segmentBounds && seg.name != nullptr) root["n"] = reinterpret_cast<const char *>(seg.name); //not good practice, but decreases required JSON buffer
+  if (seg.name != nullptr) root["n"] = reinterpret_cast<const char *>(seg.name); //not good practice, but decreases required JSON buffer
+  else if (forPreset) root["n"] = "";
 
   // to conserve RAM we will serialize the col array manually
   // this will reduce RAM footprint from ~300 bytes to 84 bytes per segment
@@ -889,6 +895,7 @@ void serializeInfo(JsonObject root)
 
   JsonObject leds = root.createNestedObject("leds");
   leds[F("count")] = strip.getLengthTotal();
+  leds[F("countP")] = strip.getLengthPhysical(); //WLEDMM
   leds[F("pwr")] = strip.currentMilliamps;
   leds["fps"] = strip.getFps();
   leds[F("maxpwr")] = (strip.currentMilliamps)? strip.ablMilliampsMax : 0;
@@ -1031,6 +1038,7 @@ void serializeInfo(JsonObject root)
   root[F("freeheap")] = ESP.getFreeHeap();
   //WLEDMM: conditional on esp32
   #if defined(ARDUINO_ARCH_ESP32)
+    root[F("freestack")] = uxTaskGetStackHighWaterMark(NULL); //WLEDMM
     root[F("minfreeheap")] = ESP.getMinFreeHeap();
   #endif
   #if defined(ARDUINO_ARCH_ESP32) && defined(BOARD_HAS_PSRAM)
@@ -1093,7 +1101,7 @@ void serializeInfo(JsonObject root)
   }
   #endif
   #if defined(WLED_DEBUG) || defined(WLED_DEBUG_HOST) || defined(SR_DEBUG) || defined(SR_STATS)
-  // WLEDMM add status of Serial, incuding pin alloc
+  // WLEDMM add status of Serial, including pin alloc
   root[F("serialOnline")] = Serial ? (canUseSerial()?F("Serial ready ☾"):F("Serial in use ☾")) : F("Serial disconected ☾");  // "Disconnected" may happen on boards with USB CDC
   root[F("sRX")] = pinManager.isPinAllocated(hardwareRX) ? pinManager.getPinOwnerText(hardwareRX): F("free");
   root[F("sTX")] = pinManager.isPinAllocated(hardwareTX) ? pinManager.getPinOwnerText(hardwareTX): F("free");
@@ -1137,8 +1145,8 @@ void serializeInfo(JsonObject root)
   #endif
   root[F("opt")] = os;
 
-  root[F("brand")] = "WLED";
-  root[F("product")] = F("FOSS");
+  root[F("brand")] = F(WLED_BRAND); //WLEDMM + Moustachauve/Wled-Native
+  root[F("product")] = F(WLED_PRODUCT_NAME); //WLEDMM + Moustachauve/Wled-Native
   root["mac"] = escapedMac;
   char s[16] = "";
   if (Network.isConnected())
@@ -1248,7 +1256,7 @@ void serializePalettes(JsonObject root, AsyncWebServerRequest* request)
         curPalette.add("c2");
         curPalette.add("c1");
         break;
-      case 5: //primary + secondary (+tert if not off), more distinct
+      case 5: //primary + secondary (+tertiary if not off), more distinct
         curPalette.add("c1");
         curPalette.add("c1");
         curPalette.add("c1");
@@ -1372,7 +1380,7 @@ void serializeModeData(JsonArray fxdata)
 }
 
 // deserializes mode names string into JsonArray
-// also removes effect data extensions (@...) from deserialised names
+// also removes effect data extensions (@...) from deserialized names
 void serializeModeNames(JsonArray arr) {
   char lineBuffer[128];
   for (size_t i = 0; i < strip.getModeCount(); i++) {

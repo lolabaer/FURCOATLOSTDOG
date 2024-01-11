@@ -9,10 +9,7 @@
  * || || ||
  * \/ \/ \/
  */
-
-#ifdef USERMOD_BLUETOOTH
-#include "../usermods/a2dp/a2dp.h"
-#endif
+//#include "../usermods/EXAMPLE_v2/usermod_v2_example.h"
 
 #ifdef USERMOD_BATTERY
 #include "../usermods/Battery/usermod_v2_Battery.h"
@@ -219,23 +216,6 @@
 #include "../usermods/usermod_v2_animartrix/usermod_v2_animartrix.h"
 #endif
 
-#if defined(WLED_USE_SD_MMC) || defined(WLED_USE_SD_SPI)
-// This include of SD.h and SD_MMC.h must happen here, else they won't be
-// resolved correctly (when included in mod's header only)
-#ifdef WLED_USE_SD_MMC
-#include "SD_MMC.h"
-#elif defined(WLED_USE_SD_SPI)
-#include "SD.h"
-#include "SPI.h"
-#endif
-#include "../usermods/sd_card/usermod_sd_card.h"
-#endif
-
-#ifdef USERMOD_PWM_OUTPUTS
-#include "../usermods/pwm_outputs/usermod_pwm_outputs.h"
-#endif
-
-
 void registerUsermods()
 {
   /*
@@ -243,12 +223,7 @@ void registerUsermods()
    * || || ||
    * \/ \/ \/
    */
-
-
-#ifdef USERMOD_BLUETOOTH
-  usermods.add(new A2dp("a2dp", true));
-#endif
-
+  //usermods.add(new MyExampleUsermod());
 #ifdef USERMOD_BATTERY
   usermods.add(new UsermodBattery("Battery", false));  // WLEDMM
 #endif
@@ -442,4 +417,5 @@ void registerUsermods()
 #ifdef USERMOD_ANIMARTRIX
   usermods.add(new AnimartrixUsermod("Animartrix", false));
 #endif
+
 }
