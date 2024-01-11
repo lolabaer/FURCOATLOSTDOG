@@ -258,6 +258,25 @@ public:
     // dd=addDropdown('a2dp','testInt');
     // addOption(dd,'Nothing',0);
     // addOption(dd,'Everything',42);
+
+    oappend(SET_F("addInfo('"));
+    oappend(String(FPSTR(_a2dp)).c_str());
+    oappend(SET_F(":pin[]"));
+    oappend(SET_F("',1,'bck');"));
+
+
+    oappend(SET_F("addInfo('"));
+    oappend(String(FPSTR(_a2dp)).c_str());
+    oappend(SET_F(":pin[]"));
+    oappend(SET_F("',1,'ws');"));
+
+    oappend(SET_F("addInfo('"));
+    oappend(String(FPSTR(_a2dp)).c_str());
+    oappend(SET_F(":pin[]"));
+    oappend(SET_F("',1,'data');"));
+
+
+
     oappend(SET_F("function insertAfter(a,b){b.parentNode.insertBefore(a,b.nextSibling)}var asd=document.createElement('i');asd.style.color='orange';asd.innerText='(change requires reboot!)';insertAfter(asd,document.getElementsByTagName('h3')[0]);asd=document.createElement('hr');asd.className='sml';insertAfter(asd,document.getElementsByTagName('h3')[0]);"));
 
     oappend(SET_F("addInfo('"));
