@@ -9,6 +9,7 @@
 #define JSON_PATH_PALETTES   5
 #define JSON_PATH_FXDATA     6
 #define JSON_PATH_NETWORKS   7
+#define JSON_PATH_EFFECTS    8
 
 // begin WLEDMM
 #ifdef ARDUINO_ARCH_ESP32
@@ -679,6 +680,27 @@ void serializeState(JsonObject root, bool forPreset, bool includeBri, bool segme
     // USER_PRINTF("serializeState %d\n", netDebugEnabled);
     #endif
 
+    // WLEDMM print error message to netDebug - esp32 only, as 8266 flash is very limited
+#if defined(ARDUINO_ARCH_ESP32) && !defined(WLEDMM_SAVE_FLASH)
+    String errPrefix = F("\nWLED error: ");
+    String warnPrefix = F("WLED warning: ");
+    switch(errorFlag) {
+      case ERR_NONE: break;
+      case ERR_DENIED:    USER_PRINTLN(errPrefix + F("Permission denied.")); break;
+      case ERR_NOBUF:     USER_PRINTLN(warnPrefix + F("JSON buffer was not released in time, request timeout.")); break;
+      case ERR_JSON:      USER_PRINTLN(errPrefix + F("JSON parsing failed (input too large?).")); break;
+      case ERR_FS_BEGIN:  USER_PRINTLN(errPrefix + F("Could not init filesystem (no partition?).")); break;
+      case ERR_FS_QUOTA:  USER_PRINTLN(errPrefix + F("FS is full or the maximum file size is reached.")); break;
+      case ERR_FS_PLOAD:  USER_PRINTLN(warnPrefix + F("Tried loading a preset that does not exist.")); break;
+      case ERR_FS_IRLOAD: USER_PRINTLN(warnPrefix + F("Tried loading an IR JSON cmd, but \"ir.json\" file does not exist.")); break;
+      case ERR_FS_RMLOAD: USER_PRINTLN(warnPrefix + F("Tried loading a remote JSON cmd, but \"remote.json\" file does not exist.")); break;
+      case ERR_FS_GENERAL: USER_PRINTLN(errPrefix + F("general unspecified filesystem error.")); break;
+      default: USER_PRINT(errPrefix + F("error code = ")); USER_PRINTLN(errorFlag); break;
+    }
+#else
+    if (errorFlag) { USER_PRINT(F("\nWLED error code = ")); USER_PRINTLN(errorFlag); }
+#endif
+
     if (errorFlag) {root[F("error")] = errorFlag; errorFlag = ERR_NONE;} //prevent error message to persist on screen
 
     root["ps"] = (currentPreset > 0) ? currentPreset : -1;
@@ -797,6 +819,7 @@ esp_reset_reason_t getRestartReason() {
 }
 String restartCode2InfoLong(esp_reset_reason_t reason) {
     switch (reason) {
+#if !defined(WLEDMM_SAVE_FLASH)
       case ESP_RST_UNKNOWN:  return(F("Reset reason can not be determined")); break;
       case ESP_RST_POWERON:  return(F("Restart due to power-on event")); break;
       case ESP_RST_EXT:      return(F("Reset by external pin (not applicable for ESP32)")); break;
@@ -808,11 +831,25 @@ String restartCode2InfoLong(esp_reset_reason_t reason) {
       case ESP_RST_DEEPSLEEP:return(F("Restart after exiting deep sleep mode")); break;
       case ESP_RST_BROWNOUT: return(F("Brownout Reset (software or hardware)")); break;
       case ESP_RST_SDIO:     return(F("Reset over SDIO")); break;
+#else
+      case ESP_RST_UNKNOWN:  return(F("ESP_RST_UNKNOWN")); break;
+      case ESP_RST_POWERON:  return(F("ESP_RST_POWERON")); break;
+      case ESP_RST_EXT:      return(F("ESP_RST_EXT")); break;
+      case ESP_RST_SW:       return(F("esp_restart()")); break;
+      case ESP_RST_PANIC:    return(F("SW Panic or Exception")); break;
+      case ESP_RST_INT_WDT:  return(F("ESP_RST_INT_WDT")); break;
+      case ESP_RST_TASK_WDT: return(F("ESP_RST_TASK_WDT")); break;
+      case ESP_RST_WDT:      return(F("ESP_RST_WDT")); break;
+      case ESP_RST_DEEPSLEEP:return(F("ESP_RST_DEEPSLEEP")); break;
+      case ESP_RST_BROWNOUT: return(F("Brownout Reset")); break;
+      case ESP_RST_SDIO:     return(F("ESP_RST_SDIO")); break;
+#endif
     }
   return(F("unknown"));
 }
 String restartCode2Info(esp_reset_reason_t reason) {
     switch (reason) {
+#if !defined(WLEDMM_SAVE_FLASH)
       case ESP_RST_UNKNOWN:  return(F("unknown reason")); break;
       case ESP_RST_POWERON:  return(F("power-on event")); break;
       case ESP_RST_EXT:      return(F("external pin reset")); break;
@@ -824,6 +861,19 @@ String restartCode2Info(esp_reset_reason_t reason) {
       case ESP_RST_DEEPSLEEP:return(F("exit from deep sleep")); break;
       case ESP_RST_BROWNOUT: return(F("Brownout Reset")); break;
       case ESP_RST_SDIO:     return(F("Reset over SDIO")); break;
+#else
+      case ESP_RST_UNKNOWN:  return(F("unknown")); break;
+      case ESP_RST_POWERON:  return(F("power-on")); break;
+      case ESP_RST_EXT:      return(F("ext. pin reset")); break;
+      case ESP_RST_SW:       return(F("SW restart")); break;
+      case ESP_RST_PANIC:    return(F("SW panic or exception")); break;
+      case ESP_RST_INT_WDT:  return(F("int. watchdog")); break;
+      case ESP_RST_TASK_WDT: return(F("task watchdog")); break;
+      case ESP_RST_WDT:      return(F("other watchdog")); break;
+      case ESP_RST_DEEPSLEEP:return(F("deep sleep")); break;
+      case ESP_RST_BROWNOUT: return(F("Brownout")); break;
+      case ESP_RST_SDIO:     return(F("SDIO reset")); break;
+#endif
     }
   return(F("unknown"));
 }
@@ -1335,6 +1385,17 @@ void serializeModeNames(JsonArray arr) {
   }
 }
 
+
+// Global buffer locking response helper class
+class GlobalBufferAsyncJsonResponse: public JSONBufferGuard, public AsyncJsonResponse {
+  public:
+  inline GlobalBufferAsyncJsonResponse(bool isArray) : JSONBufferGuard(17), AsyncJsonResponse(&doc, isArray) {};
+  virtual ~GlobalBufferAsyncJsonResponse() {};
+
+  // Other members are inherited
+};
+
+
 void serveJson(AsyncWebServerRequest* request)
 {
   byte subJson = 0;
@@ -1343,6 +1404,7 @@ void serveJson(AsyncWebServerRequest* request)
   else if (url.indexOf("info")  > 0) subJson = JSON_PATH_INFO;
   else if (url.indexOf("si")    > 0) subJson = JSON_PATH_STATE_INFO;
   else if (url.indexOf("nodes") > 0) subJson = JSON_PATH_NODES;
+  else if (url.indexOf("eff")   > 0) subJson = JSON_PATH_EFFECTS;
   else if (url.indexOf("palx")  > 0) subJson = JSON_PATH_PALETTES;
   else if (url.indexOf("fxda")  > 0) subJson = JSON_PATH_FXDATA;
   else if (url.indexOf("net") > 0) subJson = JSON_PATH_NETWORKS;
@@ -1378,11 +1440,12 @@ void serveJson(AsyncWebServerRequest* request)
     return;
   }
 
-  if (!requestJSONBufferLock(17)) {
+  GlobalBufferAsyncJsonResponse *response = new GlobalBufferAsyncJsonResponse(subJson==JSON_PATH_FXDATA || subJson==JSON_PATH_EFFECTS); // will clear and convert JsonDocument into JsonArray if necessary
+  if (!response->owns_lock()) {
     request->send(503, "application/json", F("{\"error\":3}"));
+    delete response;
     return;
   }
-  AsyncJsonResponse *response = new AsyncJsonResponse(&doc, subJson==6);
 
   JsonVariant lDoc = response->getRoot();
 
@@ -1396,6 +1459,9 @@ void serveJson(AsyncWebServerRequest* request)
       serializeNodes(lDoc); break;
     case JSON_PATH_PALETTES:
       serializePalettes(lDoc, request); break;
+      //serializePalettes(lDoc, request->hasParam("page") ? request->getParam("page")->value().toInt() : 0); break;
+    case JSON_PATH_EFFECTS:
+      serializeModeNames(lDoc); break;
     case JSON_PATH_FXDATA:
       serializeModeData(lDoc.as<JsonArray>()); break;
     case JSON_PATH_NETWORKS:
@@ -1418,7 +1484,6 @@ void serveJson(AsyncWebServerRequest* request)
 
   response->setLength();
   request->send(response);
-  releaseJSONBufferLock();
 }
 
 #ifdef WLED_ENABLE_JSONLIVE
