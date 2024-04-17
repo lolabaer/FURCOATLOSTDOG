@@ -7899,7 +7899,7 @@ uint16_t mode_2DAkemi(void) {
   const uint16_t cols = SEGMENT.virtualWidth();
   const uint16_t rows = SEGMENT.virtualHeight();
 
-  // if (SEGENV.call == 0) SEGMENT.setUpLeds(); 
+  if (SEGENV.call == 0) SEGMENT.setUpLeds(); // WLEDMM we want akemi to look perfect. No fould compromizes.
 
   uint16_t counter = (strip.now * ((SEGMENT.speed >> 2) +2)) & 0xFFFF;
   counter = counter >> 8;

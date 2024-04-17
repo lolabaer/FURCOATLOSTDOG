@@ -828,10 +828,18 @@ class WS2812FX {  // 96 bytes
       setTargetFps(uint8_t fps),
       enumerateLedmaps(); //WLEDMM (from fcn_declare)
 
-    void setColor(uint8_t slot, uint8_t r, uint8_t g, uint8_t b, uint8_t w = 0) { setColor(slot, RGBW32(r,g,b,w)); }
-    void fill(uint32_t c) { for (int i = 0; i < getLengthTotal(); i++) setPixelColor(i, c); } // fill whole strip with color (inline)
+    inline void setColor(uint8_t slot, uint8_t r, uint8_t g, uint8_t b, uint8_t w = 0) { setColor(slot, RGBW32(r,g,b,w)); }
+    inline void fill(uint32_t c) { int lTotal = getLengthTotal(); for (int i = 0; i < lTotal; i++) setPixelColor(i, c); } // fill whole strip with color (inline)
     void addEffect(uint8_t id, mode_ptr mode_fn, const char *mode_name); // add effect to the list; defined in FX.cpp
     void setupEffectData(void); // add default effects to the list; defined in FX.cpp
+
+    // WLEDMM rotating matrix hack
+    void beginFrame(void); // advance rotation time, enable spin, clear pixels
+    void endFrame(void); // disable spin
+    void setCanvas(int xStart, int xWidth, int yStart, int yHeight);
+    void noCanvas(void);
+    void DOsetPixelColorXY(int x, int y, uint32_t col); // set without mapping
+    void smoothEdges(void); // experimental
 
     // outsmart the compiler :) by correctly overloading
     inline void setPixelColor(int n, uint8_t r, uint8_t g, uint8_t b, uint8_t w = 0) { setPixelColor(n, RGBW32(r,g,b,w)); }
@@ -877,9 +885,9 @@ class WS2812FX {  // 96 bytes
     uint16_t
       ablMilliampsMax,
       currentMilliamps,
-      getLengthPhysical(void),
+      __attribute__((pure)) getLengthPhysical(void),
       __attribute__((pure)) getLengthTotal(void), // will include virtual/nonexistent pixels in matrix //WLEDMM attribute added
-      getFps();
+      __attribute__((pure)) getFps();
 
     inline uint16_t getFrameTime(void) { return _frametime; }
     inline uint16_t getMinShowDelay(void) { return MIN_SHOW_DELAY; }

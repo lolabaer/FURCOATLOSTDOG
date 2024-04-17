@@ -176,12 +176,192 @@ void WS2812FX::setUpMatrix() {
 #endif
 }
 
+// *****************************************
+// experimental: spinning matrix hack
+// will optimized and cleanup the code later
+// *****************************************
+
+// FLAGS to change behaviour
+//#define SPIN_OFF                 // no spinning - for performance comparison
+//#define SPIN_AUTOZOOM            // define to get the zoom-in/zoom-out effect
+//#define SPIN_AROUND_TOP          // define to spin around top center (instead of x/y center)
+//#define SPIN_FIXTURE_ONLY        // define rotate the fixture as one, instead of spinning individual segments
+//#define SPIN_DISABLE_AA          // define to disable filling holes between pixels ==> Faster. 
+//#define SPIN_NO_CLEAR_BACKGROUND // define to not clear the "background" before drawing a new frame
+//#define SPIN_SMOOTH_EDGES        // define to enable 1D quick & dirty edge smoothing. Sometimes creates artefacts, as it does not know about "2D". 
+                                   //   -> Looks nice with "Polar Lights", "octopus" or "Julia"
+
+static float sinrot = 0.0f;
+static float cosrot = 1.0f;
+constexpr float projScaleMax = 1.0f;   // full size
+constexpr float projScaleMin = 0.701f; // 1/sqrt(2)
+static float projScale = 0.9f;
+
+static bool useRotation = false;
+static int segStart=0;
+static int segWidth=0;
+static int segStartY=0;
+static int segHeight=0;
+
+// update sin / cos for rotation - once each frame
+static void spinTime(uint_fast16_t width, uint_fast16_t height) {
+    float now = float(millis()) / 1300.0f;  // this sets the rotation speed
+    //float now = float(millis()) / 3500.0f;  // for testing (slower)
+    // pre-compute rotation factors
+    sinrot = sinf(now);
+    cosrot = cosf(now);
+    // scale to fit
+    #if defined(SPIN_AUTOZOOM)
+    float maxProj = max(abs(width/2 * sinrot), abs(height/2 * cosrot));
+    int maxdim = max(width/2, height/2);
+    float newScaling = maxProj / float(maxdim);
+    projScale = max(min(newScaling, projScaleMax), projScaleMin);
+    #endif
+    // include scale / zoom
+    sinrot *= projScale;
+    cosrot *= projScale;
+}
+
+static uint_fast16_t spinXY(uint_fast16_t x, uint_fast16_t y, uint_fast16_t width, uint_fast16_t height, bool AAPixel = false, int32_t col = 0) {
+  // center
+  int x1 = int(x) - segStart - (segWidth/2);
+  int y1 = int(y) - segStartY - (segHeight/2);
+  // matrix mult for rotation and scaling
+  float x2 = float(x1) * cosrot - float(y1) * sinrot;
+  float y2 = float(x1) * sinrot + float(y1) * cosrot;
+  // un-center
+#if defined(SPIN_AROUND_TOP)
+  int x3 = lround(x2) + segWidth/2;
+  int y3 = lround(y2 * 2.0f);
+#else
+  int y3 = lround(y2) + segHeight/2;
+  int x3 = lround(x2) + segWidth/2;
+#endif
+  // check bounds
+  if ((x3 <0) || (x3 >= segWidth) || (y3 <0) || (y3 >= segHeight)) return UINT16_MAX; // outside of matrix
+  // move to segment start
+  x3 = x3 + segStart;
+  y3 = y3 + segStartY;
+
+  #if defined(SPIN_AROUND_TOP)  // we need to add the pixel below to compensate for up-scaling
+    if (AAPixel && col>0) strip.DOsetPixelColorXY(x3, y3+1, /*PINK*/ col);
+  #endif
+  #if !defined(SPIN_DISABLE_AA)
+  // poor man's anti-aliasing : set neighbor pixels if "real" and "integer" position deviate by more than 0.25
+  // before you ask - I'm aware that this is an abuse of the "spinXY" function
+  if ((AAPixel) && (col > 0)) {  // optimization: skip if pixel is black
+    bool fix = false;
+    float x4 = x2 - roundf(x2);
+    if ((x3 > segStart) && (x4 <= -0.25f))                 {fix = true; strip.DOsetPixelColorXY(x3-1, y3, /*GREEN*/ col);}    // left pixel
+    //else if ((x3 < (segStart + segWidth-1)) && (x4 >= 0.25f))   {fix = true; strip.DOsetPixelColorXY(x3+1, y3, /*RED*/ col);} // right pixel - usually not needed
+    #if !defined(SPIN_AROUND_TOP)  // we need to add pixels below to compensate for up-scaling
+    if (!fix) {
+      float y4 = y2 - roundf(y2);
+      if ((y3 > segStartY) && (y4 <= -0.25f))                strip.DOsetPixelColorXY(x3, y3-1, /*YELLOW*/ col);   // upper pixel
+      //else if ((y3 < (segStartY + segHeight-1)) && (y4 >= 0.25f)) strip.DOsetPixelColorXY(x3, y3+1, /*PINK*/ col);     // lower pixel
+    }
+    #else
+    float y4 = y2 - roundf(y2);
+    if ((y3 > segStartY) && (y4 <= -0.125f))                strip.DOsetPixelColorXY(x3, y3-1, /*YELLOW*/ col);   // upper pixel - lower is always set
+    #endif
+  }
+  #endif
+  // deliver fish
+  return (x3%width) + (y3%height) * width;
+}
+
+// public functions
+
+void WS2812FX::beginFrame(void) {
+#if !defined(SPIN_NO_CLEAR_BACKGROUND) && !defined(SPIN_OFF)
+  fill(BLACK);
+#endif
+  spinTime(Segment::maxWidth, Segment::maxHeight);
+#if !defined(SPIN_OFF)
+  useRotation = true;
+#endif
+}
+void WS2812FX::endFrame(void) {
+  useRotation = false;
+  noCanvas();
+#if defined(SPIN_SMOOTH_EDGES)
+  smoothEdges();
+#endif
+}
+
+void WS2812FX::smoothEdges(void) {
+  // edge smoothing as a postprocess, quick & dirty, 1D
+  // we scan over all pixels, looking for edges where lightness rises or falls strongly. Then lighten up the lower brightness side.
+  if (bri < 48) return;        // brightness too low
+  useRotation = false;         // work on raw pixels
+  unsigned edgeLuma = bri / 4; // min brightness of edge
+  constexpr unsigned edgeBlur = 56; // amount of "fading" on edges, range 0..255
+
+  CRGB prev = CRGB(getPixelColor(0));
+  unsigned llen = getLengthTotal();
+  for (unsigned i=1; i < llen; i++) {
+    CRGB now = CRGB(getPixelColor(i));
+    unsigned luma = now.getAverageLight();
+    unsigned preLuma = prev.getAverageLight();
+
+    if ((luma > edgeLuma) && (luma > preLuma) && ((preLuma < 2) || (luma / preLuma) > 2))
+      setPixelColor(i-1, prev.lerp8(now, edgeBlur));  // brightness goes up by over 50% -> left + 22%
+    else if ((preLuma > edgeLuma) && (preLuma > luma) && ((luma < 2) || (preLuma / luma) > 2))
+      setPixelColor(i, now.lerp8(prev, edgeBlur));  // brightness goes down by over 50% -> right + 22%
+
+    prev = now;
+  }
+}
+
+void WS2812FX::setCanvas(int xStart, int xWidth, int yStart, int yHeight) {
+#if !defined(SPIN_FIXTURE_ONLY)
+  segStart=xStart;
+  segWidth=xWidth;
+  segStartY=yStart;
+  segHeight=yHeight;
+#else
+  segStart=0;
+  segWidth=Segment::maxWidth;
+  segStartY=0;
+  segHeight=Segment::maxHeight;
+#endif
+#if !defined(SPIN_OFF)
+  useRotation = true;
+#endif
+}
+
+void WS2812FX::noCanvas(void) {
+  segStart=0;
+  segWidth=Segment::maxWidth;
+  segStartY=0;
+  segHeight=Segment::maxHeight;
+  useRotation = false;
+}
+
+// WLEDMM: setPixelColorXY without spinXY part.
+void WS2812FX::DOsetPixelColorXY(int x, int y, uint32_t col) {
+  //if (!isMatrix) return; // not a matrix set-up
+  if ((x<0) || (y<0)) return;
+  if (x >= Segment::maxWidth) return;
+  if (y >= Segment::maxHeight) return;
+  uint_fast16_t index = y * Segment::maxWidth + x;
+  if (index < customMappingSize) index = customMappingTable[index];
+  if (index >= _length) return;
+  //if (busses.getPixelColor(index) != col) busses.setPixelColor(index, col);
+  busses.setPixelColor(index, col);
+}
+
 // absolute matrix version of setPixelColor()
 void IRAM_ATTR_YN WS2812FX::setPixelColorXY(int x, int y, uint32_t col) //WLEDMM: IRAM_ATTR conditionally
 {
 #ifndef WLED_DISABLE_2D
   if (!isMatrix) return; // not a matrix set-up
-  uint_fast16_t index = y * Segment::maxWidth + x;
+  // use rotation hack
+  uint_fast16_t index;
+  if (useRotation)
+    index = spinXY(x, y,  Segment::maxWidth,  Segment::maxHeight, true, col);
+  else
+    index = y * Segment::maxWidth + x;
 #else
   uint16_t index = x;
 #endif
@@ -193,7 +373,13 @@ void IRAM_ATTR_YN WS2812FX::setPixelColorXY(int x, int y, uint32_t col) //WLEDMM
 // returns RGBW values of pixel
 uint32_t WS2812FX::getPixelColorXY(uint16_t x, uint16_t y) {
 #ifndef WLED_DISABLE_2D
-  uint_fast16_t index = (y * Segment::maxWidth + x); //WLEDMM: use fast types
+  if ((x<0) || (y<0)) return 0; // WLEDMM fix array out of bounds access
+  // use rotation hack
+  uint_fast16_t index;
+  if (useRotation)
+    index = spinXY(x, y,  Segment::maxWidth,  Segment::maxHeight, false);
+  else
+    index = y * Segment::maxWidth + x;
 #else
   uint16_t index = x;
 #endif
